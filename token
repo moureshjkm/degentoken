@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+
+contract degen_Token is ERC20, Ownable {
+    enum Sneaker { Puma, Adidas, Nike}
+
+    event TicketRedeemed(address indexed account, Sneaker selectedSneaker, uint256 amountSpent);
+    event RewardAdded(address indexed account, uint256 rewardAmount);
+
+    mapping(address => Sneaker) public userSelectedSneakers;
+    mapping(address => uint256) public userRewards;
+
+    uint256 public constant Puma_Cost = 400;
+    uint256 public constant Adidas_Cost = 500;
+    uint256 public constant Nike_Cost = 1000;
+
+    string public currency;
+    uint256 public exchangeRate;
+
+    constructor(address initialOwner, string memory _currency, uint256 _initialRate) ERC20("Event_Token", "ET") Ownable(initialOwner) {
+        currency = _currency;
+        exchangeRate = _initialRate;
+    }
+
+    function setExchangeRate(string memory _currency, uint256 _rate) public onlyOwner {
+        currency = _currency;
+        exchangeRate = _rate;
+    }
+
+    function mint(address beneficiary, uint256 amount) public onlyOwner {
+        _mint(beneficiary, amount);
+    }
+
+    function burn(uint256 amount) public {
+        require(amount > 0, "Amount to burn must be greater than zero");
+        require(balanceOf(msg.sender) >= amount, "Insufficient funds for burning");
+        _burn(msg.sender, amount);
+    }
+
+    function redeemTicket(uint8 sneakerNumber) public {
+        Sneaker selectedSneaker;
+
+        require(sneakerNumber >= 1 && sneakerNumber <= 3, "Invalid sneaker number");
+
+        uint256 amountSpent;
+
+        if (sneakerNumber == 1) {
+            require(balanceOf(msg.sender) >= Puma_Cost, "Insufficient funds for redeeming ticket");
+            selectedSneaker = Sneaker.Puma;
+            amountSpent = Puma_Cost;
+            _burn(msg.sender, amountSpent);
+        } else if (sneakerNumber == 2) {
+            require(balanceOf(msg.sender) >= Adidas_Cost, "Insufficient funds for redeeming ticket");
+            selectedSneaker = Sneaker.Adidas;
+            amountSpent = Adidas_Cost;
+            _burn(msg.sender, amountSpent);
+        } else {
+            require(balanceOf(msg.sender) >= Nike_Cost, "Insufficient funds for redeeming ticket");
+            selectedSneaker = Sneaker.Nike;
+            amountSpent = Nike_Cost;
+            _burn(msg.sender, amountSpent);
+        }
+
+        userSelectedSneakers[msg.sender] = selectedSneaker;
+        emit TicketRedeemed(msg.sender, selectedSneaker, amountSpent);
+    }
+
+    function addReward(address beneficiary, uint256 rewardAmount) external onlyOwner {
+        userRewards[beneficiary] += rewardAmount;
+        emit RewardAdded(beneficiary, rewardAmount);
+    }
+
+    function getRewardBalance(address user) external view returns (uint256) {
+        return userRewards[user];
+    }
+
+    function transferTokens(address recipient, uint256 amount) external {
+        require(recipient != address(0), "Invalid recipient address");
+        require(balanceOf(msg.sender) >= amount, "Insufficient funds for transfer");
+        _transfer(msg.sender, recipient, amount);
+    }
+
+    function getTicketCost(uint8 sneakerNumber) external pure returns (uint256) {
+        require(sneakerNumber >= 1 && sneakerNumber <= 3, "Invalid sneaker number");
+
+        if (sneakerNumber == 1) {
+            return Puma_Cost;
+        } else if (sneakerNumber == 2) {
+            return Adidas_Cost;
+        } else {
+            return Nike_Cost;
+        }
+    }
+
+    function getExchangeRate() external view returns (string memory, uint256) {
+        return (currency, exchangeRate);
+    }
+}
